@@ -1,0 +1,142 @@
+---
+title: "Project2_StaticProgram"
+author: "Patrick Seebold"
+format: pdf
+editor: visual
+---
+
+This document will handle static calculations/EDA of the data that will be used for our app. First, we set up our libraries.
+
+```{r}
+library(shiny)
+library(shinyalert)
+library(tidyverse)
+```
+
+Now we load in our data and confirm it loaded in.
+
+```{r}
+data = read.csv("user_behavior_dataset.csv")
+nrow(data) # 700 rows
+head(data) # all data rows accounted for
+summary(data)
+
+```
+
+Great, the data is loaded in. These names are awful, let's rename to make things simpler:
+
+```{r}
+colnames(data) = c("id","device","os","apptime","screentime","battery","noapps","datause","age","gender","class")
+```
+
+Now we can begin our EDA. We'll make some one and two-way contingency tables and numerical summaries.
+
+```{r}
+# Contingency Tables
+
+# One-Way tables for understanding devices/OS/etc
+table(data$device)
+table(data$os)
+
+# Two-Way tables for understanding demographics and interactions
+table(data$age, data$gender) 
+
+# One way table looking at behavior class (1 - 5, light - extreme)
+table(data$class)
+
+# Two way for behavior class and other variables
+table(data$gender, data$class)
+table(data$os, data$class)
+```
+
+Next, we'll do summaries of our numerical variables of interest (Number of Apps, Screentime, App time, Battery Usage) at different categories (Gender, Operating System, Behavior Class).
+
+```{r}
+data|>
+  summarize(mean_apps = mean(noapps, na.rm = TRUE),
+            sd_apps = sd(noapps, na.rm = TRUE),
+            mean_screentime = mean(screentime, na.rm = TRUE),
+            sd_screentime = sd(screentime, na.rm = TRUE),
+            mean_apptime = mean(apptime, na.rm = TRUE),
+            sd_apptime = sd(apptime, na.rm = TRUE),
+            mean_battery = mean(battery, na.rm = TRUE),
+            sd_battery = sd(battery, na.rm = TRUE))
+
+# after subsetting for only usage Males
+data |>
+  subset(gender == "Male") |>
+  summarize(mean_apps = mean(noapps, na.rm = TRUE),
+            sd_apps = sd(noapps, na.rm = TRUE),
+            mean_screentime = mean(screentime, na.rm = TRUE),
+            sd_screentime = sd(screentime, na.rm = TRUE),
+            mean_apptime = mean(apptime, na.rm = TRUE),
+            sd_apptime = sd(apptime, na.rm = TRUE),
+            mean_battery = mean(battery, na.rm = TRUE),
+            sd_battery = sd(battery, na.rm = TRUE))
+
+# after subsetting for only usage Female
+data |>
+  subset(gender == "Female") |>
+  summarize(mean_apps = mean(noapps, na.rm = TRUE),
+            sd_apps = sd(noapps, na.rm = TRUE),
+            mean_screentime = mean(screentime, na.rm = TRUE),
+            sd_screentime = sd(screentime, na.rm = TRUE),
+            mean_apptime = mean(apptime, na.rm = TRUE),
+            sd_apptime = sd(apptime, na.rm = TRUE),
+            mean_battery = mean(battery, na.rm = TRUE),
+            sd_battery = sd(battery, na.rm = TRUE))
+
+# after subsetting for only Android users
+data |>
+  subset(os == "Android") |>
+  summarize(mean_apps = mean(noapps, na.rm = TRUE),
+            sd_apps = sd(noapps, na.rm = TRUE),
+            mean_screentime = mean(screentime, na.rm = TRUE),
+            sd_screentime = sd(screentime, na.rm = TRUE),
+            mean_apptime = mean(apptime, na.rm = TRUE),
+            sd_apptime = sd(apptime, na.rm = TRUE),
+            mean_battery = mean(battery, na.rm = TRUE),
+            sd_battery = sd(battery, na.rm = TRUE))
+            
+```
+
+Finally, lets do some plots. Let's focus on battery usage and see how it interacts with other variables:
+
+```{r}
+# Smoothed plot of screen time and battery use for both gender categories
+g = ggplot(data, aes(y = battery, x = screentime, color = gender))
+g + geom_smooth() + labs(title = "Battery Usage by Screentime across Gender", x = "Daily Screentime in Hours", y = "Daily Battery Drain in mAh")
+
+# Smoothed plot of screen time and battery use for both gender categories
+g = ggplot(data, aes(y = battery, x = screentime, color = os))
+g + geom_smooth() + labs(title = "Battery Usage by Screentime across OS", x = "Daily Screentime in Hours", y = "Daily Battery Drain in mAh")
+
+```
+
+No obvious differences in screen-on time's effect on battery across gender or operating system. This is NOT a surprise for gender, but could have been different for OS! Next, let's do a scatterplot exploring number of apps vs app time and screen-on time:
+
+```{r}
+# Scatterplot of screen time by number of apps, reflecting gender in color and os by facet wrap
+g = ggplot(data, aes(y = screentime, x = noapps, color = gender))
+g + geom_point() + labs(title = "Screentime by Number of Apps, Across Gender", x = "Number of Apps", y = "Daily Screentime in Hours") + facet_wrap(~os)
+
+# Scatterplot of app time by number of apps, reflecting gender in color and os by facet wrap
+g = ggplot(data, aes(y = apptime, x = noapps, color = gender))
+g + geom_point() + labs(title = "App Time by Number of Apps, Across Gender", x = "Number of Apps", y = "Daily App Usage in Hours") + facet_wrap(~os)
+```
+
+Not surprising to see that individuals with more apps tend to spend longer with phone screen on and more time on their apps. This trend appears to hold constant across gender and across operating system. The data looks a bit strange, with clearly delineated blocks appearing in the data. The online data source suggests that this data is intended for machine learning training, but is NOT appropriate for publication. This suggests that it may be synthetic data, which is not an issue for our purposes.
+
+Finally, let's make a plot using a new type of plot - a heatmap! We'll do this for both screentime by app time, and for battery usage by number of apps:
+
+```{r}
+# Heatmap of screentime by os and behavior class
+g = ggplot(data, aes(y = class, x = os, fill = screentime))
+g + geom_tile() + labs(title = "Screentime by OS across Behavioral Usage Class", x = "Operating System", y = "Usage Class (1 = low, 5 = high)", fill = "Screentime in Hours")
+
+# Heatmap of number of apps by os and behavior class
+g = ggplot(data, aes(y = class, x = os, fill = noapps))
+g + geom_tile() + labs(title = "Number of Apps by OS across Behavioral Usage Class", x = "Operating System", y = "Usage Class (1 = low, 5 = high)", fill = "# of Apps")
+```
+
+Voila! We now have static code that provides contingency tables, numeric summaries of 4 key variables, and 6 plots that help us understand how these variables relate to each other. Next, we will place these contents into an RShiny App!s
