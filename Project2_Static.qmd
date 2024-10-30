@@ -86,9 +86,22 @@ data |>
             mean_battery = mean(battery, na.rm = TRUE),
             sd_battery = sd(battery, na.rm = TRUE))
 
+            
 # after subsetting for only Android users
 data |>
   subset(os == "Android") |>
+  summarize(mean_apps = mean(noapps, na.rm = TRUE),
+            sd_apps = sd(noapps, na.rm = TRUE),
+            mean_screentime = mean(screentime, na.rm = TRUE),
+            sd_screentime = sd(screentime, na.rm = TRUE),
+            mean_apptime = mean(apptime, na.rm = TRUE),
+            sd_apptime = sd(apptime, na.rm = TRUE),
+            mean_battery = mean(battery, na.rm = TRUE),
+            sd_battery = sd(battery, na.rm = TRUE))
+            
+# after subsetting for only IOS users
+data |>
+  subset(os == "iOS") |>
   summarize(mean_apps = mean(noapps, na.rm = TRUE),
             sd_apps = sd(noapps, na.rm = TRUE),
             mean_screentime = mean(screentime, na.rm = TRUE),
@@ -139,4 +152,4 @@ g = ggplot(data, aes(y = class, x = os, fill = noapps))
 g + geom_tile() + labs(title = "Number of Apps by OS across Behavioral Usage Class", x = "Operating System", y = "Usage Class (1 = low, 5 = high)", fill = "# of Apps")
 ```
 
-Voila! We now have static code that provides contingency tables, numeric summaries of 4 key variables, and 6 plots that help us understand how these variables relate to each other. Next, we will place these contents into an RShiny App!s
+Voila! We now have static code that provides contingency tables, numeric summaries of 4 key variables, and 6 plots that help us understand how these variables relate to each other. Next, we will place these contents into an RShiny App!
