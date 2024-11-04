@@ -58,7 +58,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("About",
-                 textOutput("about")
+                 verbatimTextOutput("about")
                  ),
         tabPanel("Data Download",
                  DT::dataTableOutput("table")),
@@ -72,43 +72,50 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
   
-  observe({print(input$os) # for debuggin purpose
-    print(input$gender)
-    print(input$button)
-    print(input$var1)
-  })
+  #observe({print(input$button[1]) # for debuggin purpose
+   # print(input$gender)
+ # })
 
   ##################################################
   # set up hardcoded about text
   output$about = renderText({
-    "this is a test"
-    })
-
+    "Welcome to my app! Here you can explore and visualize some basic variables
+    relating to phone use from a sample data set. The data and more information
+    about the data for this app are available here:
+    https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset
     
-    #update input boxes & slider automatically
-  observe({
+    The Data Download tab lets you to see the data table.
+    The Data Plotting lets you to see plots and numerical summaries of your variable.
+    
+    In the side bar, the top two multi-choice section will let you subset the 
+    data by gender and operating system. The drop-down menu below this will let
+    you choose which numerical variable you would like to see. The dynamic slider
+    (which will appear once you pick your variable!) will let you further subset
+    your data.
+    
+    Thanks for visiting, and have fun! :D"
+    })
+  
+  # Now we add in the actionButton to subset the data when appropriate
+  observeEvent(input$button, {
     var1 = input$var1
     choices = vars
-    
     updateSliderInput(session, "var1", max = input$max)
-    })
-   
-  # Now we add in the actionButton to subset the data when appropriate
-  output$table = DT::renderDataTable(DT::datatable({
-    data_sub = data
-    if (input$os != "All") {
-      data_sub |>
-        filter(data_sub$os == input$os)
-      #data_sub = data[data$os == input$os,]
-    }
-    if (input$gender != "All") {
-      data_sub |>
-        filter(data_sub$gender == input$gender)
-      #data_sub = data[data$gender == input$gender,]
-    }
-    data_sub
-  }))
-} 
+    output$table = DT::renderDataTable(
+      DT::datatable({
+        data_sub = data
+        if (input$os != "All") {
+          data_sub = data_sub |>
+            filter(data_sub$os == input$os)
+        }
+        if (input$gender != "All") {
+          data_sub =data_sub |>
+            filter(data_sub$gender == input$gender)
+        }
+     data_sub
+    }))
+  })
+}
   
 # Run the application 
 shinyApp(ui = ui, server = server)
