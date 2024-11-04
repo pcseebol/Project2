@@ -2,14 +2,14 @@ library(shiny)
 library(shinyalert)
 library(tidyverse)
 
-source("helpers.R")
+#source("helpers.R")
 
 # load in the data
 data = read.csv("user_behavior_dataset.csv")
 colnames(data) = c("id","device","os","apptime",
                    "screentime","battery","noapps",
                    "datause","age","gender","class")
-
+vars = c("noapps","screentime","apptime","battery") 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   
@@ -21,7 +21,7 @@ ui <- fluidPage(
                    "Gender",
                    choiceValues = c("All", 
                                     "Male",
-                                    "Female",
+                                    "Female"
                    ),
                    choiceNames = c("All",
                                    "Male",
@@ -39,43 +39,36 @@ ui <- fluidPage(
                                    "iOS"
                    )
       ),
-    #  h2("Select a Numeric Variable"),
-    #  sliderInput("corr_n", "", min = 20, max = 500, value = 20),
-    #  actionButton("corr_sample","Get a Sample!")
-    #  conditionalPanel(
-    #    condition = "input.choice == 'show'",
-    #    sliderInput("slider","Select Subset:",
-    #                 min)
-    #  )
-    #  ),
-    h2("Select Variables to Find Correlation:"),
-    selectizeInput("corr_x",
-                   "x Variable",
-                   choices = numeric_vars[-1], 
-                   selected = numeric_vars[2]),
-    selectizeInput("corr_y",
-                   "y Variable",
-                   choices = numeric_vars[-2],
-                   selected = numeric_vars[1]),
-    
+    h2("Select Variables to View Details/Plots:"),
+    selectizeInput("var1", 
+                   "Variable 1",
+                   choices = vars[-1], 
+                   selected = vars[2]
+                   ), 
+    selectizeInput("var2",
+                   "Variable 2",
+                   choices = vars[-2],
+                   selected = vars[1]),
+    ),
     mainPanel(
-      plotOutput("corr_scatter"),
-      conditionalPanel("input.corr_sample",
-                       h2("Guess the correlation!"),
-                       column(6, 
-                              numericInput("corr_guess",
-                                           "",
-                                           value = 0,
-                                           min = -1, 
-                                           max = 1
-                              )
-                       ),
-                       column(6, 
-                              actionButton("corr_submit", "Check Your Guess!"))
-      )
+      plotOutput("plot1")
     )
+#      conditionalPanel("input.corr_sample",
+#                       h2("Guess the correlation!"),
+#                       column(6, 
+##                              numericInput("corr_guess",
+#                                           "",
+#                                           value = 0,
+#                                           min = -1, 
+#                                           max = 1
+###3                              )
+#                       ),
+#                       column(6, 
+#                              actionButton("corr_submit", "Check Your Guess!"))
+#      )
+   )
   )
-)
+
 
 my_sample = data
 
@@ -88,28 +81,28 @@ server <- function(input, output, session) {
   sample_corr <- reactiveValues(corr_data = NULL, corr_truth = NULL)
   
   #update input boxes so they can't choose the same variable
-  observeEvent(c(input$corr_x, input$corr_y), {
-    corr_x <- input$corr_x
-    corr_y <- input$corr_y
-    choices <- numeric_vars
-    if (corr_x == corr_y){
-      choices <- choices[-which(choices == corr_x)]
+  observeEvent(c(input$var1, input$var2), {
+    var1 <- input$var1
+    var2 <- input$var2
+    choices <- vars
+    if (var1 == var2){
+      choices <- choices[-which(choices == var1)]
       updateSelectizeInput(session,
-                           "corr_y",
+                           "var2",
                            choices = choices)
     }
     
     #Note: this was shinyalert wasn't asked for but is needed
     #for rent vs property taxes/value
-    if (((input$corr_x == "GRPIP") & (input$corr_y %in% c("TAXAMT", "VALP"))) | ((input$corr_y == "GRPIP") & (input$corr_x %in% c("TAXAMT", "VALP")))){
+    if (((input$var1 == "GRPIP") & (input$var2 %in% c("TAXAMT", "VALP"))) | ((input$var2 == "GRPIP") & (input$var1 %in% c("TAXAMT", "VALP")))){
       shinyalert(title = "Oh no!", "Those with Property taxes and/or Property Values usually don't have a rent payment. Please select a different combination of variables.", type = "error")
       updateSelectizeInput(session,
-                           "corr_x",
+                           "var1",
                            choices = choices[-2],
                            selected = choices[1]
       )
       updateSelectizeInput(session,
-                           "corr_y",
+                           "var2",
                            choices = choices[-1],
                            selected = choices[2]
       )
@@ -149,7 +142,7 @@ server <- function(input, output, session) {
       schl_sub <- SCHLvals[as.character(20:24)]
     }
     
-    corr_vars <- c(input$corr_x, input$corr_y)
+    corr_vars <- c(input$var1, input$var2)
     
     subsetted_data <- my_sample |>
       filter(#cat vars first
@@ -180,11 +173,11 @@ server <- function(input, output, session) {
   
   #Code for rendering the regression plot. It changes whether a line is requested
   #or not
-  output$corr_scatter <- renderPlot({
+  output$plot1 <- renderPlot({
     validate(
       need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button.")
     )
-    ggplot(sample_corr$corr_data, aes_string(x = isolate(input$corr_x), y = isolate(input$corr_y))) +
+    ggplot(sample_corr$corr_data, aes_string(x = isolate(input$var1), y = isolate(input$var2))) +
       geom_point()
   })
   
