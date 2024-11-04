@@ -1,6 +1,7 @@
 library(shiny)
 library(shinyalert)
 library(tidyverse)
+library(DT)
 
 #source("helpers.R")
 
@@ -9,7 +10,7 @@ data = read.csv("user_behavior_dataset.csv")
 colnames(data) = c("id","device","os","apptime",
                    "screentime","battery","noapps",
                    "datause","age","gender","class")
-vars = c("noapps","screentime","apptime","battery") 
+vars = c("","noapps","apptime") 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   
@@ -30,7 +31,7 @@ ui <- fluidPage(
       ),
       radioButtons("os",
                    "Operating System",
-                   choiceValues = c("all", 
+                   choiceValues = c("All", 
                                     "Android",
                                     "iOS"
                    ),
@@ -39,171 +40,75 @@ ui <- fluidPage(
                                    "iOS"
                    )
       ),
-    h2("Select Variables to View Details/Plots:"),
+    h2("Select Variable to View Details/Plots:"),
     selectizeInput("var1", 
-                   "Variable 1",
-                   choices = vars[-1], 
-                   selected = vars[2]
-                   ), 
-    selectizeInput("var2",
-                   "Variable 2",
-                   choices = vars[-2],
-                   selected = vars[1]),
+                   "",
+                   choices = vars, 
+                   selected = "",
+                   ),
+    conditionalPanel(condition = "input.var1 !== ''", 
+      sliderInput("min", "Lower Bound of Value:",
+                min = 0, max = 100, value = 5),
+      sliderInput("max", "Upper Bound of Value:",
+                min = 0, max = 100, value = 10),
+    ),
+      # Action button!
+    actionButton("button", "Confirm Selections Here!"),
     ),
     mainPanel(
-      plotOutput("plot1")
+      tabsetPanel(
+        tabPanel("About",
+                 textOutput("about")
+                 ),
+        tabPanel("Data Download",
+                 DT::dataTableOutput("table")),
+        tabPanel("Data Exploration",
+                 verbatimTextOutput("TBC")),
     )
-#      conditionalPanel("input.corr_sample",
-#                       h2("Guess the correlation!"),
-#                       column(6, 
-##                              numericInput("corr_guess",
-#                                           "",
-#                                           value = 0,
-#                                           min = -1, 
-#                                           max = 1
-###3                              )
-#                       ),
-#                       column(6, 
-#                              actionButton("corr_submit", "Check Your Guess!"))
-#      )
    )
   )
-
-
-my_sample = data
+) 
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
   
-  
-  ##################################################
-  ##Correlation tab
-  sample_corr <- reactiveValues(corr_data = NULL, corr_truth = NULL)
-  
-  #update input boxes so they can't choose the same variable
-  observeEvent(c(input$var1, input$var2), {
-    var1 <- input$var1
-    var2 <- input$var2
-    choices <- vars
-    if (var1 == var2){
-      choices <- choices[-which(choices == var1)]
-      updateSelectizeInput(session,
-                           "var2",
-                           choices = choices)
-    }
-    
-    #Note: this was shinyalert wasn't asked for but is needed
-    #for rent vs property taxes/value
-    if (((input$var1 == "GRPIP") & (input$var2 %in% c("TAXAMT", "VALP"))) | ((input$var2 == "GRPIP") & (input$var1 %in% c("TAXAMT", "VALP")))){
-      shinyalert(title = "Oh no!", "Those with Property taxes and/or Property Values usually don't have a rent payment. Please select a different combination of variables.", type = "error")
-      updateSelectizeInput(session,
-                           "var1",
-                           choices = choices[-2],
-                           selected = choices[1]
-      )
-      updateSelectizeInput(session,
-                           "var2",
-                           choices = choices[-1],
-                           selected = choices[2]
-      )
-    }
+  observe({print(input$os) # for debuggin purpose
+    print(input$gender)
+    print(input$button)
+    print(input$var1)
   })
-  
-  #make sure two variables are selected
-  observeEvent(input$corr_sample, {
-    
-    if(input$hhl_corr == "all"){
-      hhl_sub <- HHLvals
-    } else if(input$hhl_corr == "english"){
-      hhl_sub <- HHLvals["1"]
-    } else if(input$hhl_corr == "spanish"){
-      hhl_sub <- HHLvals["2"]
-    } else {
-      hhl_sub <- HHLvals[c("0", "3", "4", "5")]
-    }
-    
-    if(input$fs_corr == "all"){
-      fs_sub <- FSvals
-    } else if(input$fs_corr == "yes"){
-      fs_sub <- FSvals["1"]
-    } else {
-      fs_sub <- FSvals["2"]
-    }
-    
-    if(input$schl_corr == "all"){
-      schl_sub <- SCHLvals
-    } else if(input$schl_corr == "no_hs"){
-      schl_sub <- SCHLvals[c("0", "01", "02", "03", "04", 
-                             "05", "06", "07", "08", "09",
-                             "10", "11", "12", "13", "14", "15")]
-    } else if(input$schl_corr == "hs"){
-      schl_sub <- SCHLvals[as.character(16:19)]
-    } else {
-      schl_sub <- SCHLvals[as.character(20:24)]
-    }
-    
-    corr_vars <- c(input$var1, input$var2)
-    
-    subsetted_data <- my_sample |>
-      filter(#cat vars first
-        HHLfac %in% hhl_sub,
-        FSfac %in% fs_sub,
-        SCHLfac %in% schl_sub
-      ) %>% #make sure numeric variables are in appropriate range, must use %>% here for {} to work
-      {if("WKHP" %in% corr_vars) filter(., WKHP > 0) else .} %>%
-      {if("VALP" %in% corr_vars) filter(., !is.na(VALP)) else .} %>%
-      {if("TAXAMT" %in% corr_vars) filter(., !is.na(TAXAMT)) else .} %>%
-      {if("GRPIP" %in% corr_vars) filter(., GRPIP > 0) else .} %>%
-      {if("GASP" %in% corr_vars) filter(., GASP > 0) else .} %>%
-      {if("ELEP" %in% corr_vars) filter(., ELEP > 0) else .} %>%
-      {if("WATP" %in% corr_vars) filter(., WATP > 0) else .} %>%
-      {if("PINCP" %in% corr_vars) filter(., AGEP > 18) else .} %>%
-      {if("JWMNP" %in% corr_vars) filter(., !is.na(JWMNP)) else .}
-    
-    index <- sample(1:nrow(subsetted_data),
-                    size = input$corr_n,
-                    replace = TRUE,
-                    prob = subsetted_data$PWGTP/sum(subsetted_data$PWGTP))
-    sample_corr$corr_data <- subsetted_data[index, ]
-    sample_corr$corr_truth <- cor(sample_corr$corr_data |>
-                                    select(corr_vars))[1,2]
-  })
-  
-  
-  
-  #Code for rendering the regression plot. It changes whether a line is requested
-  #or not
-  output$plot1 <- renderPlot({
-    validate(
-      need(!is.null(sample_corr$corr_data), "Please select your variables, subset, and click the 'Get a Sample!' button.")
-    )
-    ggplot(sample_corr$corr_data, aes_string(x = isolate(input$var1), y = isolate(input$var2))) +
-      geom_point()
-  })
-  
-  
-  
-  #Code for the correlation guessing game
-  observeEvent(input$corr_submit, {
-    close <- abs(input$corr_guess - sample_corr$corr_truth) <= .05
-    if(close){
-      shinyalert(title = "Nicely done!",
-                 paste0("The sample correlation is ",
-                        round(sample_corr$corr_truth, 4),
-                        "."),
-                 type = "success"
-      )
-    } else {
-      if(input$corr_guess > sample_corr$corr_truth){
-        shinyalert(title = "Try again!",
-                   "Try guessing a lower value.")
-      } else {
-        shinyalert(title = "Try again!",
-                   "Try guessing a higher value.")
-      }
-    }
-  })
-}
 
+  ##################################################
+  # set up hardcoded about text
+  output$about = renderText({
+    "this is a test"
+    })
+
+    
+    #update input boxes & slider automatically
+  observe({
+    var1 = input$var1
+    choices = vars
+    
+    updateSliderInput(session, "var1", max = input$max)
+    })
+   
+  # Now we add in the actionButton to subset the data when appropriate
+  output$table = DT::renderDataTable(DT::datatable({
+    data_sub = data
+    if (input$os != "All") {
+      data_sub |>
+        filter(data_sub$os == input$os)
+      #data_sub = data[data$os == input$os,]
+    }
+    if (input$gender != "All") {
+      data_sub |>
+        filter(data_sub$gender == input$gender)
+      #data_sub = data[data$gender == input$gender,]
+    }
+    data_sub
+  }))
+} 
+  
 # Run the application 
 shinyApp(ui = ui, server = server)
