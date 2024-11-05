@@ -58,10 +58,12 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("About",
-                 verbatimTextOutput("about")
+                 verbatimTextOutput("about"),
+                 img(src = "phone.jpg")
                  ),
         tabPanel("Data Download",
-                 DT::dataTableOutput("table")),
+                 DT::dataTableOutput("table"),
+                 downloadLink('downloadData', 'Download Full Data')),
         tabPanel("Data Exploration",
                  verbatimTextOutput("TBC")),
     )
@@ -95,6 +97,16 @@ server <- function(input, output, session) {
     
     Thanks for visiting, and have fun! :D"
     })
+  
+  # set up data download
+  output$downloadData <- downloadHandler(
+       filename = function() {
+         paste('data-', Sys.Date(), '.csv', sep='')
+       },
+       content = function(con) {
+         write.csv(data, con)
+       }
+  )
   
   # Now we add in the actionButton to subset the data when appropriate
   observeEvent(input$button, {
