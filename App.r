@@ -2,6 +2,7 @@ library(shiny)
 library(shinyalert)
 library(tidyverse)
 library(DT)
+library(shinycssloaders)
 
 # This Rshiny app will let users interact dynamically with phone user behavior data!
 
@@ -15,7 +16,7 @@ vars = c("","numapps","apptime","screentime","battery")
 
 # Define the UI
 ui <- fluidPage(
-  titlePanel("Select Data Subset!"),
+  titlePanel("Online App for Exploring User Phone Behavior Data"),
   # we'll use sidebarLayout to keep things simple for our sidebar
   sidebarLayout(
     sidebarPanel(
@@ -62,12 +63,12 @@ ui <- fluidPage(
                 min = 30, max = 600, value = 600),
       ),
     conditionalPanel(condition = "input.var1 == 'battery'", 
-                     sliderInput("battery", "Maximum Battery Usage per Day (mAh):",
-                                 min = 302, max = 2993, value = 2993)
+        sliderInput("battery", "Maximum Battery Usage per Day (mAh):",
+                min = 302, max = 2993, value = 2993)
     ),
     conditionalPanel(condition = "input.var1 == 'screentime'", 
-                     sliderInput("screentime", "Maximum Hours on Screen per Day:",
-                                 min = 1, max = 12, value = 12),
+        sliderInput("screentime", "Maximum Hours on Screen per Day:",
+                min = 1, max = 12, value = 12),
     ),
     
       # Action button to generate the data subset
@@ -82,40 +83,47 @@ ui <- fluidPage(
                  img(src = "phone.jpg")
                  ),
         tabPanel("Data Download",
-                 DT::dataTableOutput("table"),
-                 downloadLink('downloadData', 'Download Full Data')),
+                  withSpinner(DT::dataTableOutput("table")),
+                  downloadLink('downloadData', 'Download Full Data'))
+                  ,
         tabPanel("Data Exploration",
-                 plotOutput("scatter"),
-                 plotOutput("heat"),
-                 DT::dataTableOutput("num"),
-                      conditionalPanel("input.button",
-                      h2("Select Y"),
-                      selectInput("var2",
-                                   "",
-                                   choices = vars, 
-                                   selected = ""
-                                   ),
-                      radioButtons("type",
-                                 "Select Summary Type",
-                                 choiceValues = c("num", 
-                                                  "scatter",
-                                                  "heat"
-                                 ),
-                                 choiceNames = c("Numerical Summaries",
-                                                 "Scatterplot",
-                                                 "Heat map"
-                                 )
-                      
-                    ),
-                    actionButton("button2", "Confirm Y Variable"),
-                 ),
+                  h2("Select Y"),
+                  selectInput("var2",
+                             "",
+                             choices = vars, 
+                             selected = ""
+                  ),
+                  radioButtons("type",
+                              "Select Summary Type",
+                              choiceValues = c("num", 
+                                               "scatter",
+                                               "heat"
+                              ),
+                              choiceNames = c("Numerical Summaries",
+                                              "Scatterplot",
+                                              "Heat map"
+                              ),
+                  ),
+                  actionButton("button2", "Confirm Y Variable"),
+                   # format the page with conditional panels!
+                  conditionalPanel("input.type == 'scatter'",
+                                plotOutput("scatter")),
+                  conditionalPanel("input.type == 'heat'",
+                                plotOutput("heat")),
+                  conditionalPanel("input.type == 'num'",
+                                tableOutput("num")),
+                  conditionalPanel("input.button",
+              ),
+           ),
+        )
+      )
     )
-   )
-  )
   ) 
-)
+
 # Now we define our server logic to get everything running smoothly!
 server <- function(input, output, session) {
+  
+  loading = reactiveVal(FALSE) # for selectively displaying a loader
   
   #observe({print(input$appnum)
   #  print(input$var1) # for debugging purpose
@@ -129,11 +137,12 @@ server <- function(input, output, session) {
     about the data for this app are available here:
     https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset
     
-    The Data Download tab lets you to see the data table. 
-    The Data Plotting lets you to see plots and numerical summaries of your variable.
-    
     NOTE!! You'll need to generate your data with the button on the side panel
     before using the Data Download or Data Plotting tabs.
+    
+    After you generate your data, check the Download tab to confirm your subset has loaded.
+    After the data has loaded, the Exploration tab lets you to see plots and summaries.
+    
     
     In the side bar, the top two multi-choice section will let you subset the 
     data by gender and operating system. The drop-down menu below this will let
@@ -159,6 +168,7 @@ server <- function(input, output, session) {
   
   # Set up the action-button execution of subsetting the data
   observeEvent(input$button, {
+    loading(TRUE) # tell the loader that its time is now!
     output$table = DT::renderDataTable(
       DT::datatable({
         data_sub = data
@@ -187,49 +197,57 @@ server <- function(input, output, session) {
             filter(data_sub$battery <= input$battery)
         }
     subset_data$data = data_sub
+    loading(FALSE) # end of loading period, stop the loaders!
     data_sub
-     
     }))
   })
   
   observeEvent(input$button2, {
+    loading(TRUE) # tell the loaders that their time has come.
     if (input$var1 == input$var2){ # Throw a warning for if both variables match
-      shinyalert(title = "Oh no!", "Please make sure to select a different variable than your X variable!", type = "error")
+      shinyalert(title = "Oh no!", "Your X & Y are the same! You won't get the most info this way!", type = "warning")
     }
     if (input$type == "scatter"){
       output$scatter = renderPlot({
         validate(
-          need(!is.null(subset_data$data), "Please select your variables, subset, and click the buttons.")
+          need(!is.null(subset_data$data), "Make sure you've viewed the Data Download tab to confirm your subsets!")
         )
         ggplot(subset_data$data, aes_string(x = isolate(input$var1), y = isolate(input$var2)))+
           geom_point() +
-          labs(x = input$var1, y = input$var2, title = paste(input$var1, " by ", input$var2)) +
+          labs(x = input$var1, y = input$var2, title = paste("Scatterplot of ", input$var1, " by ", input$var2, "for ", input$gender, "gender and ", input$os, " operating system")) +
           theme_minimal()
       })}
     if (input$type == "heat"){
       output$heat = renderPlot({
         validate(
-          need(!is.null(subset_data$data), "Please select your variables, subset, and click the buttons.")
+          need(!is.null(subset_data$data), "Make sure you've viewed the Data Download tab to confirm your subsets!")
         )
         ggplot(subset_data$data, aes_string(x = isolate(input$var1), y = isolate(input$var2)))+
           geom_tile() +
+          labs(x = input$var1, y = input$var2, title = paste("Heatmap of ", input$var1, " by ", input$var2, "for ", input$gender, "gender and ", input$os, " operating system")) +
           theme_minimal()
       })}
     if (input$type == "num"){
       output$num = renderTable({
         validate(
-          need(!is.null(subset_data$data), "Please select your variables, subset, and click the buttons.")
+          need(!is.null(subset_data$data), "Make sure you've viewed the Data Download tab to confirm your subsets!")
         )
+        var1s = sym(input$var1) # get the names for us in summarize
+        var2s = sym(input$var2)
         summ = subset_data$data |>
-          summarize( mean_apps = mean(numapps, na.rm = TRUE),
-                     sd_apps = sd(numapps, na.rm = TRUE),
-                     mean_screentime = mean(screentime, na.rm = TRUE),
-                     sd_screentime = sd(screentime, na.rm = TRUE),
-                     mean_apptime = mean(apptime, na.rm = TRUE),
-                     sd_apptime = sd(apptime, na.rm = TRUE),
-                     mean_battery = mean(battery, na.rm = TRUE),
-                     sd_battery = sd(battery, na.rm = TRUE))
-      })}
+          summarize(
+                    !!paste0("Mean of ", var1s):= mean(!!var1s, na.rm = TRUE),
+                    !!paste0("Mean of ", var2s):= mean(!!var2s, na.rm = TRUE),
+                    !!paste0("Median of ", var1s):= median(!!var1s, na.rm = TRUE),
+                    !!paste0("Median of ", var2s):= median(!!var2s, na.rm = TRUE),
+                    !!paste0("SD of ", var1s):= sd(!!var1s, na.rm = TRUE),
+                    !!paste0("SD of ", var2s):= sd(!!var2s, na.rm = TRUE),
+          )
+          summ
+      })
+    }
+    
+  loading(FALSE) # end loading
   })
 }
 # Run the application 
